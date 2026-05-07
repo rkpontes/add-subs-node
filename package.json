@@ -1,0 +1,16 @@
+{
+  "name": "add-subs",
+  "version": "1.0.0",
+  "description": "CLI para gerar video com imagem fixa, audio e legenda automatica",
+  "type": "module",
+  "main": "src/cli.js",
+  "scripts": {
+    "start": "node src/cli.js"
+  },
+  "bin": {
+    "add-subs": "src/cli.js"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  }
+}
