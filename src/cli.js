@@ -13,8 +13,10 @@ async function main() {
     .name("add-subs")
     .description("Gera video MP4 com imagem fixa, musica e legenda")
     .requiredOption("--audio <path>", "arquivo .mp3 ou .wav")
-    .requiredOption("--bg <path>", "imagem de fundo .jpg/.png")
+    .option("--bg <path>", "imagem de fundo .jpg/.png")
     .option("--srt <path>", "usa arquivo .srt existente e pula transcricao")
+    .option("--only-srt", "gera somente a legenda .srt e nao renderiza video")
+    .option("--srt-out <path>", "caminho do .srt gerado (quando transcrever)")
     .option("--lang <code>", "idioma da transcricao (ex: pt)", "pt")
     .option("--out <path>", "caminho do MP4 final")
     .option("--whisper-bin <path>", "binario do whisper.cpp", "whisper-cli")
@@ -22,17 +24,25 @@ async function main() {
     .parse(process.argv);
 
   const options = program.opts();
+  const onlySrt = Boolean(options.onlySrt);
   const audioPath = path.resolve(options.audio);
-  const backgroundPath = path.resolve(options.bg);
+  const backgroundPath = options.bg ? path.resolve(options.bg) : null;
   const outputPath = path.resolve(options.out ?? `output/${stripExtension(audioPath)}.mp4`);
   const tempDir = path.resolve("temp");
+  const generatedSrtOutputPath = path.resolve(options.srtOut ?? path.join(tempDir, `${stripExtension(audioPath)}.srt`));
   const outputDir = path.dirname(outputPath);
 
   await ensureFileExists(audioPath, "Audio");
-  await ensureFileExists(backgroundPath, "Background");
   await ensureDirExists(tempDir);
-  await ensureDirExists(outputDir);
-  await checkFfmpegInstalled();
+
+  if (!onlySrt) {
+    if (!backgroundPath) {
+      throw new Error("Informe --bg para renderizar video.");
+    }
+    await ensureFileExists(backgroundPath, "Background");
+    await ensureDirExists(outputDir);
+    await checkFfmpegInstalled();
+  }
 
   let srtPath = options.srt ? path.resolve(options.srt) : null;
 
@@ -44,7 +54,7 @@ async function main() {
       throw new Error("Informe --whisper-model para gerar legenda automatica local.");
     }
 
-    srtPath = path.join(tempDir, `${stripExtension(audioPath)}.srt`);
+    srtPath = generatedSrtOutputPath;
     console.log("Gerando legenda automatica via whisper.cpp...");
     await generateSrtFromAudio({
       audioPath,
@@ -54,6 +64,11 @@ async function main() {
       whisperModelPath: options.whisperModel
     });
     console.log(`Legenda gerada em: ${srtPath}`);
+  }
+
+  if (onlySrt) {
+    console.log(`Legenda criada com sucesso: ${srtPath}`);
+    return;
   }
 
   const hasSubtitles = Boolean(srtPath);
